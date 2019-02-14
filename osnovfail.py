@@ -91,7 +91,8 @@ def load_level(filename):
 
 tile_images = {
     'wall': load_image('obsidian.png'),
-    'empty': load_image('grass.png')
+    'empty': load_image('grass.png'),
+    "destr_wall" : load_image("stone.png")
 }
 player_image = load_image('mario.png')
 
@@ -102,11 +103,19 @@ class Tile(pygame.sprite.Sprite):
     def __init__(self, tile_type, pos_x, pos_y):
         if tile_type == "wall":
             super().__init__(obsidian_group, all_sprites)
-        else:
+        elif tile_type == "empty":
             super().__init__(tiles_group, all_sprites)
+        else:
+            super().__init__(wall_group, all_sprites)
+        self.tile_type = tile_type
         self.image = tile_images[tile_type]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
+    def update(self):
+        if self.tile_type == "destr_wall":
+            if pygame.sprite.spritecollideany(self, vzriv):
+                self.kill()
+                level[self.rect.y//tile_width][self.rect.x//tile_width] = "."
 
 
 class Player(pygame.sprite.Sprite):
@@ -123,31 +132,30 @@ class Player(pygame.sprite.Sprite):
         self.kol = 0
 
     def update(self):
-
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
 
                 self.rect = self.image.get_rect().move(self.rect.x - 50, self.rect.y)
-                if pygame.sprite.spritecollideany(self, obsidian_group):
+                if pygame.sprite.spritecollideany(self, obsidian_group) or pygame.sprite.spritecollideany(self, wall_group):
                     self.rect = self.image.get_rect().move(self.rect.x + 50, self.rect.y)
                 elif self.rect.x < 0:
                     self.rect = self.image.get_rect().move(self.rect.x + 50, self.rect.y)
 
             if event.key == pygame.K_RIGHT:
                 self.rect = self.image.get_rect().move(self.rect.x + 50, self.rect.y)
-                if pygame.sprite.spritecollideany(self, obsidian_group):
+                if pygame.sprite.spritecollideany(self, obsidian_group) or pygame.sprite.spritecollideany(self, wall_group):
                     self.rect = self.image.get_rect().move(self.rect.x - 50, self.rect.y)
                 elif self.rect.x > width:
                     self.rect = self.image.get_rect().move(self.rect.x - 50, self.rect.y)
             if event.key == pygame.K_UP:
                 self.rect = self.image.get_rect().move(self.rect.x, self.rect.y - 50)
-                if pygame.sprite.spritecollideany(self, obsidian_group):
+                if pygame.sprite.spritecollideany(self, obsidian_group) or pygame.sprite.spritecollideany(self, wall_group):
                     self.rect = self.image.get_rect().move(self.rect.x, self.rect.y + 50)
                 elif self.rect.y < 0:
                     self.rect = self.image.get_rect().move(self.rect.x, self.rect.y + 50)
             if event.key == pygame.K_DOWN:
                 self.rect = self.image.get_rect().move(self.rect.x, self.rect.y + 50)
-                if pygame.sprite.spritecollideany(self, obsidian_group):
+                if pygame.sprite.spritecollideany(self, obsidian_group) or pygame.sprite.spritecollideany(self, wall_group):
                     self.rect = self.image.get_rect().move(self.rect.x, self.rect.y - 50)
                 elif self.rect.y > height:
                     self.rect = self.image.get_rect().move(self.rect.x, self.rect.y - 50)
@@ -166,6 +174,7 @@ class Enemy(pygame.sprite.Sprite):
         self.map = map
 
     def update(self):
+        self.map = level
         if self.state == 0:
             self.state = random.randrange(1, 5)
         elif self.state == 1:
@@ -208,7 +217,7 @@ sprites.add(bomb)
 
 all_sprites = pygame.sprite.Group()
 
-
+wall_group = pygame.sprite.Group()
 enemy_group = pygame.sprite.Group()
 tiles_group = pygame.sprite.Group()
 obsidian_group = pygame.sprite.Group()
@@ -243,14 +252,34 @@ def smert(boom):
         end = True
 
 
-def spawn_enemys(num, level):
-    for _ in range(num):
+level = [[]]
+
+def spawn_all(numen, numbl, levelr):
+
+    for a in range(len(levelr)):
+        for i in levelr[a]:
+            level[a].append(i)
+        level.append([])
+
+    for _ in range(numbl):
         x = 0
         y = 0
         while level[y][x] != ".":
-            y = random.randrange(0, len(level))
-            x = random.randrange(0, len(level[0]))
+            y = random.randrange(0, len(level)-1)
+            x = random.randrange(0, len(level[0])-1)
+        Tile("destr_wall", x, y)
+        level[y][x] = "$"
+
+    for _ in range(numen):
+        x = 0
+        y = 0
+        while level[y][x] != ".":
+            y = random.randrange(0, len(level)-1)
+            x = random.randrange(0, len(level[0])-1)
         Enemy(x, y, level)
+
+
+
 
 
 def BoomKrest(x, y, kill=False):
@@ -399,13 +428,13 @@ n = -1  # номер картинки
 start_screen()
 clock = pygame.time.Clock()
 main_player, x, y = generate_level(load_level('level.txt'))
-spawn_enemys(10, load_level('level.txt'))
+spawn_all(10, 30, load_level('level.txt'))
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             terminate()
         if event.type == pygame.KEYDOWN:
-            if event.key == 101 and n == -1:  # 101 - это кнопка K_e
+            if event.key == pygame.K_e and n == -1:
                 bomb.rect.x = Perx
                 bomb.rect.y = Pery
                 boomX = Perx
@@ -414,7 +443,6 @@ while True:
                 n = 0
                 sprites.draw(screen)
             else:
-
                 player_group.update()
     if n == 0:
         if kol == 5:
@@ -440,10 +468,12 @@ while True:
 
     all_sprites.draw(screen)
     tiles_group.draw(screen)
+    wall_group.draw(screen)
     player_group.draw(screen)
     enemy_group.draw(screen)
     sprites.draw(screen)
     enemy_group.update()
+    wall_group.update()
     if timeboom != -1:
         vzriv.draw(screen)
         timeboom += 1
@@ -467,4 +497,3 @@ while True:
 
     pygame.display.flip()
     clock.tick(10)
-#
